@@ -40,7 +40,7 @@ const server = http.createServer((req,res)=>{
                 <head><title>Form Submission</title></head>
                 <body>
                     <h1>Form Data Submitted</h1>
-                    <p>Name: ${parsedData.name}</p>
+                    <p>Name: ${parsedData.fname}</p>
                     <p>Email: ${parsedData.email}</p>
                     <p>Age: ${parsedData.age}</p>
                 </body>
