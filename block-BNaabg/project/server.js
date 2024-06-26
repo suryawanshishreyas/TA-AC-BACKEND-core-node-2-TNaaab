@@ -1,46 +1,67 @@
 var http = require('http');
 var fs = require('fs');
-var qs = require('querystring');
-var port = 3000;
-var path = require('path');
+var url = require('url');
+const { parse } = require('path');
 
-const sendResponse = (res, statusCode, data) => {
-    res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(data));
-};
+var usersPath= __dirname + '/users/';
+var server = http.createServer(handleRequest);
 
-// Create the server
-const server = http.createServer((req, res) => {
-    if (req.method === 'POST' && req.url === '/users') {
-        // Create a user
-        let body = '';
-        req.on('data', chunk => {
-            body += chunk.toString();
-        });
-        req.on('end', () => {
-            const user = JSON.parse(body);
-            const filePath = path.join(__dirname, 'users', `${user.username}.json`);
+function handleRequest(req,res){
+    var parsedUrl = url.parse(req.url, true);
 
-            fs.open(filePath, 'wx', (err, fd) => {
-                if (err) {
-                    if (err.code === 'EEXIST') {
-                        return sendResponse(res, 409, { message: 'User already exists' });
-                    }
-                    return sendResponse(res, 500, { message: 'Internal Server Error' });
-                }
-
-                fs.writeFile(fd, JSON.stringify(user), err => {
-                    if (err) {
-                        return sendResponse(res, 500, { message: 'Internal Server Error' });
-                    }
-
-                    fs.close(fd, err => {
-                        if (err) {
-                            return sendResponse(res, 500, { message: 'Internal Server Error' });
-                        }
-
-                        sendResponse(res, 201, { message: 'User created' });
+    var store = '';
+    req.on('data',(chunk)=>{
+        store+=chunk;
+    });
+    req.on('end',()=>{
+        // all routes here
+        if(req.url === '/users' && req.method === 'POST'){
+            var username = JSON.parse(store).username;
+            fs.open(usersPath + username + '.json','wx', (err,fd)=>{
+                if(err) return console.log(err);
+                fs.writeFile(fd, store, (err)=>{
+                    if(err) return console.log(err);
+                    fs.close(fd,()=>{
+                        return res.end(`${username} created successfully`);
                     });
-                });
-            });
-        });
+                })
+            })
+        }
+        if(req.method === 'GET' && parsedUrl.pathname ==='/users'){
+            var username = parsedUrl.query.username;
+            fs.readFile(usersPath + username + '.json', (err, content)=>{
+                if(err) return console.log(err);
+                res.setHeader('content-type','application/json');
+                return res.end(content);
+            })
+        }
+        if(parsedUrl.pathname === '/users' && req.method === 'PUT'){
+            var username = parsedUrl.query.username;
+            fs.open(usersPath + username + '.json', 'r+',(err, fd)=>{
+                if(err) return console.log(err);
+                fs.ftruncate(fd, (err)=>{
+                    if(err) return console.log(err);
+                    fs.writeFile(fd, store, (err)=>{
+                        if(err) return console.log(err);
+                        fs.close(fd, ()=>{
+                            return res.end(`${username} updated successfully`);
+                        })
+                    })
+                })
+            })
+        }
+        if(parsedUrl.pathname === '/users' && req.method === 'DELETE'){
+            var username = parsedUrl.query.username;
+            fs.unlink(usersPath + username + '.json', (err)=>{
+                if(err) return console.log(err);
+                return res.end(`${username} is deleted`);
+            })
+        }
+        res.statusCode = 404;
+        res.end('Page Not Found');
+    })
+}
+
+server.listen(3000,()=>{
+    console.log(`Server is listening on port 3000`);
+})
